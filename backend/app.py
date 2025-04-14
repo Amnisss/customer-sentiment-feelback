@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import string
@@ -34,17 +35,42 @@ def preprocess_text(text):
     words = [word for word in words if word not in stop_words]
     return " ".join(words)
 
-# Load model and tokenizer once at startup
-model_path = "/Users/Amruta/Downloads/bert_model"
-my_model = TFBertForSequenceClassification.from_pretrained(model_path)
-tokenizer = BertTokenizer.from_pretrained(model_path)
+# Download model from GitHub Release
+def download_model():
+    model_url = 'https://github.com/Amnisss/customer-sentiment-feelback/releases/download/v1.0.0/tf_model.h5'
+    model_path = './bert_model/tf_model.h5'
+    
+    # Check if the model already exists
+    if not os.path.exists(model_path):
+        print("Downloading model...")
+        response = requests.get(model_url)
+        if response.status_code == 200:
+            # Save the model file locally
+            with open(model_path, 'wb') as file:
+                file.write(response.content)
+            print("Model downloaded successfully.")
+        else:
+            print("Failed to download model, status code:", response.status_code)
+            return None
+    else:
+        print("Model already exists locally.")
+    
+    return model_path
 
+# Download and load the model and tokenizer
+model_path = download_model()
+
+if model_path:
+    my_model = TFBertForSequenceClassification.from_pretrained(model_path)
+    tokenizer = BertTokenizer.from_pretrained(model_path)
+
+#Front End
 @app.route('/api/run-ml', methods=['POST'])
 def run_ml():
-    data = request.get_json()
-    access_token = data.get('accessToken')
-    account_id = data.get('accountId')
-    location_id = data.get('locationId')
+    data_ = request.get_json()
+    access_token = data_.get('accessToken')
+    account_id = data_.get('accountId')
+    location_id = data_.get('locationId')
 
     try:
         # Step 1: Call the Google Business Profile API to get reviews
@@ -106,7 +132,7 @@ def run_ml():
         positive_counts = df_positive['dominant_topic'].value_counts().reindex(range(n_topics), fill_value=0)
         negative_counts = df_negative['dominant_topic'].value_counts().reindex(range(n_topics), fill_value=0)
 
-        # Create the plot
+        # Create the topic distribution plot
         fig, ax = plt.subplots(figsize=(10, 6))
 
         # Plot positive counts
